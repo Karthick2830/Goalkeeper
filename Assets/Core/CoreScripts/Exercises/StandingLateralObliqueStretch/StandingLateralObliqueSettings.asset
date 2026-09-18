@@ -1,0 +1,28 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1ff87ee626054df4ea8ba8aa8b5f669d, type: 3}
+  m_Name: StandingLateralObliqueSettings
+  m_EditorClassIdentifier: Assembly-CSharp::ExerciseGame.Exercises.StandingLateralObliqueStretch.StandingLateralObliqueSettings
+  minimumOverheadAngle: 150
+  minimumElbowExtensionAngle: 150
+  targetAngle: 15
+  maximumAngleReversal: 5
+  requiredHoldTime: 0.3
+  targetStableFrames: 8
+  neutralAngle: 8
+  neutralRequiredTime: 0.25
+  minimumMovementAngle: 5
+  maximumFrameAngleChange: 8
+  movementStableFrames: 6
+  minimumConfidence: 0.5
+  invertDirection: 1
+  showDebugLogs: 1
