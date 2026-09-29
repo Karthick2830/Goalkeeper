@@ -1,9 +1,13 @@
-using System;
+﻿using System;
 using System.Collections;
 using UnityEngine;
 
 public class BallController : MonoBehaviour
 {
+    // =========================================================
+    // BALL SETTINGS
+    // =========================================================
+
     [Header("Ball Settings")]
 
     [SerializeField]
@@ -22,6 +26,10 @@ public class BallController : MonoBehaviour
     private float nextKickDelay = 1f;
 
 
+    // =========================================================
+    // REFERENCES
+    // =========================================================
+
     [Header("References")]
 
     [SerializeField]
@@ -37,6 +45,10 @@ public class BallController : MonoBehaviour
     private UIManager uiManager;
 
 
+    // =========================================================
+    // ANIMATION HASHES
+    // =========================================================
+
     private static readonly int KickHash =
         Animator.StringToHash("Kick");
 
@@ -47,24 +59,21 @@ public class BallController : MonoBehaviour
     // =========================================================
     // BALL LANES
     // =========================================================
-    //
+
     // -10 = LEFT
     //  10 = RIGHT
-    //
+
     // Sequence:
-    //
     // LEFT
     // RIGHT
     // LEFT
     // RIGHT
-    // =========================================================
 
     private readonly float[] lanes =
     {
         -10f,
         10f
     };
-
 
     private int nextLaneIndex = 0;
 
@@ -93,6 +102,10 @@ public class BallController : MonoBehaviour
 
     private bool shouldCurve = false;
 
+    // True when a shot has been prepared
+    // and is waiting for the guidance system.
+    private bool shotPrepared = false;
+
 
     // =========================================================
     // PUBLIC
@@ -103,18 +116,22 @@ public class BallController : MonoBehaviour
     public float curveDirection;
 
 
+    // =========================================================
+    // EVENTS
+    // =========================================================
+
     // Called when the ball actually starts moving.
     public Action onBallKick;
 
 
-    // Called BEFORE the kicker animation starts.
+    // Called before the kicker animation starts.
     //
     // Sends:
     // "LEFT"
     // "RIGHT"
     //
-    // The ExerciseGuidanceManager uses this to tell the
-    // player which hand to raise.
+    // ExerciseGuidanceManager uses this to
+    // show the preparation instruction.
     public Action<string> onShotPreparing;
 
 
@@ -126,13 +143,11 @@ public class BallController : MonoBehaviour
     {
         rb = GetComponent<Rigidbody>();
 
-
         startPosition = new Vector3(
             0f,
             transform.position.y,
             startingZPos
         );
-
 
         if (kicker != null)
         {
@@ -146,14 +161,11 @@ public class BallController : MonoBehaviour
                 kicker.transform.localScale;
         }
 
-
         transform.position =
             startPosition;
 
-
         // First shot = LEFT.
         nextLaneIndex = 0;
-
 
         activeCoroutine =
             StartCoroutine(BallWait());
@@ -169,7 +181,6 @@ public class BallController : MonoBehaviour
         if (isGameOver ||
             activeCoroutine != null)
             return;
-
 
         activeCoroutine =
             StartCoroutine(BallWait());
@@ -188,17 +199,14 @@ public class BallController : MonoBehaviour
             activeCoroutine = null;
         }
 
-
         isGameOver = false;
-
         isResetting = false;
-
         _pendingSave = false;
 
+        shotPrepared = false;
 
         // Start sequence from LEFT.
         nextLaneIndex = 0;
-
 
         rb.linearVelocity =
             Vector3.zero;
@@ -206,13 +214,11 @@ public class BallController : MonoBehaviour
         rb.angularVelocity =
             Vector3.zero;
 
-
         transform.position =
             startPosition;
 
         transform.localScale =
             Vector3.one;
-
 
         if (kicker != null)
         {
@@ -227,7 +233,6 @@ public class BallController : MonoBehaviour
             kicker.transform.localScale =
                 kickerStartScale;
         }
-
 
         activeCoroutine =
             StartCoroutine(BallWait());
@@ -264,10 +269,147 @@ public class BallController : MonoBehaviour
 
 
     // =========================================================
+    // PREPARE NEXT SHOT
+    // =========================================================
+
+    private IEnumerator BallWait()
+    {
+        // -----------------------------------------------------
+        // DETERMINE UPCOMING SIDE
+        // -----------------------------------------------------
+
+        string upcomingDirection =
+            GetUpcomingShotDirection();
+
+
+        // -----------------------------------------------------
+        // MARK SHOT AS PREPARED
+        // -----------------------------------------------------
+
+        shotPrepared = true;
+
+
+        // -----------------------------------------------------
+        // RESET KICKER
+        // -----------------------------------------------------
+
+        if (kicker != null)
+        {
+            kicker.transform.position =
+                kickerStartPosition;
+
+            kicker.transform.localRotation =
+                kickerStartRotation;
+        }
+
+
+        // -----------------------------------------------------
+        // TELL GUIDANCE SYSTEM
+        // -----------------------------------------------------
+        //
+        // IMPORTANT:
+        //
+        // We DO NOT start the kicker animation here.
+        //
+        // GuidanceManager will:
+        //
+        // 1. Show "Get ready"
+        // 2. Wait preparationDelay
+        // 3. Show "Bend"
+        // 4. Call ExecutePreparedShot()
+        //
+        // -----------------------------------------------------
+
+        onShotPreparing?.Invoke(
+            upcomingDirection
+        );
+
+        activeCoroutine = null;
+
+        yield break;
+    }
+
+
+    // =========================================================
+    // EXECUTE PREPARED SHOT
+    // =========================================================
+
+    public void ExecutePreparedShot()
+    {
+        if (isGameOver)
+            return;
+
+        if (!shotPrepared)
+            return;
+
+        shotPrepared = false;
+
+
+        // -----------------------------------------------------
+        // START KICKER ANIMATION
+        // -----------------------------------------------------
+
+        if (ballKickAnimator != null)
+        {
+            ballKickAnimator.Play(
+                "Kick",
+                0,
+                0f
+            );
+
+            ballKickAnimator.SetTrigger(
+                KickHash
+            );
+        }
+
+
+        // -----------------------------------------------------
+        // PRESERVE ORIGINAL KICK TIMING
+        // -----------------------------------------------------
+        //
+        // Previously BallWait() did:
+        //
+        // Start animation
+        //      ↓
+        // Wait 2.1 seconds
+        //      ↓
+        // Shoot
+        //
+        // We preserve exactly that timing here.
+        //
+        // -----------------------------------------------------
+
+        activeCoroutine =
+            StartCoroutine(
+                DelayedShoot()
+            );
+    }
+
+
+    // =========================================================
+    // DELAYED SHOOT
+    // =========================================================
+
+    private IEnumerator DelayedShoot()
+    {
+        yield return new WaitForSeconds(
+            2.1f
+        );
+
+        if (!isGameOver)
+        {
+            Shoot();
+        }
+
+        activeCoroutine = null;
+    }
+
+
+    // =========================================================
     // SHOOT
     // =========================================================
 
-    void Shoot()
+    private void Shoot()
     {
         if (isGameOver)
             return;
@@ -294,15 +436,6 @@ public class BallController : MonoBehaviour
         // BALL STARTED
         // -----------------------------------------------------
 
-        // This event is used by the exercise guidance system
-        // to change from:
-        //
-        // "Raise your hand"
-        //
-        // to:
-        //
-        // "Bend LEFT/RIGHT"
-        //
         onBallKick?.Invoke();
 
 
@@ -326,7 +459,6 @@ public class BallController : MonoBehaviour
         shouldCurve =
             Mathf.Abs(laneX) == 10f;
 
-
         curveDirection =
             Mathf.Sign(laneX);
 
@@ -340,7 +472,6 @@ public class BallController : MonoBehaviour
             float wideAimX =
                 laneX +
                 (curveDirection * 5f);
-
 
             direction =
                 new Vector3(
@@ -429,6 +560,7 @@ public class BallController : MonoBehaviour
     {
         isGameOver = true;
 
+        shotPrepared = false;
 
         if (activeCoroutine != null)
         {
@@ -436,93 +568,11 @@ public class BallController : MonoBehaviour
             activeCoroutine = null;
         }
 
-
         rb.linearVelocity =
             Vector3.zero;
 
         rb.angularVelocity =
             Vector3.zero;
-    }
-
-
-    // =========================================================
-    // BALL WAIT
-    // =========================================================
-
-    IEnumerator BallWait()
-    {
-        // -----------------------------------------------------
-        // DETERMINE UPCOMING SIDE
-        // -----------------------------------------------------
-
-        string upcomingDirection =
-            GetUpcomingShotDirection();
-
-
-        // -----------------------------------------------------
-        // EXERCISE GUIDANCE
-        // -----------------------------------------------------
-        //
-        // This happens BEFORE the kicker starts kicking.
-        //
-        // LEFT ball:
-        //     Raise RIGHT hand
-        //
-        // RIGHT ball:
-        //     Raise LEFT hand
-        // -----------------------------------------------------
-
-        onShotPreparing?.Invoke(
-            upcomingDirection
-        );
-
-
-        // -----------------------------------------------------
-        // RESET KICKER
-        // -----------------------------------------------------
-
-        if (kicker != null)
-        {
-            kicker.transform.position =
-                kickerStartPosition;
-
-            kicker.transform.localRotation =
-                kickerStartRotation;
-        }
-
-
-        // -----------------------------------------------------
-        // KICK ANIMATION
-        // -----------------------------------------------------
-
-        if (ballKickAnimator != null)
-        {
-            ballKickAnimator.Play(
-                "Kick",
-                0,
-                0f
-            );
-
-
-            ballKickAnimator.SetTrigger(
-                KickHash
-            );
-        }
-
-
-        // -----------------------------------------------------
-        // WAIT FOR KICK
-        // -----------------------------------------------------
-
-        yield return new WaitForSeconds(
-            2.1f
-        );
-
-
-        if (!isGameOver)
-        {
-            Shoot();
-        }
     }
 
 
@@ -535,17 +585,14 @@ public class BallController : MonoBehaviour
         if (isResetting)
             return;
 
-
         if (collision.gameObject.CompareTag("Player"))
         {
             AudioManager.instance
                 .PlayBallHitImpact();
 
-
             ballKickAnimator?.SetTrigger(
                 defeatHash
             );
-
 
             if (player != null &&
                 !player.canHeader)
@@ -565,7 +612,6 @@ public class BallController : MonoBehaviour
                 );
             }
 
-
             TriggerReset();
         }
     }
@@ -580,16 +626,15 @@ public class BallController : MonoBehaviour
         if (isResetting)
             return;
 
-
         isResetting = true;
 
+        shotPrepared = false;
 
         if (activeCoroutine != null)
         {
             StopCoroutine(activeCoroutine);
             activeCoroutine = null;
         }
-
 
         activeCoroutine =
             StartCoroutine(
@@ -608,7 +653,10 @@ public class BallController : MonoBehaviour
         shouldCurve = false;
 
 
-        // Wait after collision.
+        // -----------------------------------------------------
+        // WAIT AFTER COLLISION
+        // -----------------------------------------------------
+
         yield return new WaitForSeconds(
             1.3f
         );
@@ -663,7 +711,7 @@ public class BallController : MonoBehaviour
 
 
         // -----------------------------------------------------
-        // WAIT BEFORE NEXT KICK
+        // WAIT BEFORE NEXT SHOT
         // -----------------------------------------------------
 
         yield return new WaitForSeconds(

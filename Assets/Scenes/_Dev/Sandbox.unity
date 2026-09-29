@@ -40567,6 +40567,7 @@ MonoBehaviour:
   guidanceImage: {fileID: 385073951}
   guidanceText: {fileID: 1071585989}
   guidanceAudioSource: {fileID: 1932756154}
+  preparationDelay: 5
   raiseRightHandImage: {fileID: 21300000, guid: 0614346013b80b64d8d34c9ae95a8790,
     type: 3}
   bendLeftImage: {fileID: 21300000, guid: e7fc86478cad32a468fef7a2d24e17f8, type: 3}
@@ -153495,11 +153496,11 @@ SceneRoots:
   - {fileID: 1399113282}
   - {fileID: 1341829412}
   - {fileID: 1595051090}
+  - {fileID: 8571076842951108990}
   - {fileID: 1112652590}
   - {fileID: 2028286366}
   - {fileID: 1434269580}
   - {fileID: 1146592478}
   - {fileID: 1341788134}
-  - {fileID: 8571076842951108990}
   - {fileID: 1174763728}
   - {fileID: 897858212}

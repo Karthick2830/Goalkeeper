@@ -1,3 +1,4 @@
+using System.Collections;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
@@ -24,13 +25,17 @@ public class ExerciseGuidanceManager : MonoBehaviour
 
 
     // =========================================================
-    // LEFT SIDE GUIDANCE
+    // TIMING
     // =========================================================
-    //
-    // LEFT BALL
-    //
-    // Raise RIGHT hand
-    // Bend LEFT
+
+    [Header("Timing")]
+
+    [SerializeField]
+    private float preparationDelay = 2f;
+
+
+    // =========================================================
+    // LEFT BALL GUIDANCE
     // =========================================================
 
     [Header("LEFT Ball Guidance")]
@@ -49,13 +54,7 @@ public class ExerciseGuidanceManager : MonoBehaviour
 
 
     // =========================================================
-    // RIGHT SIDE GUIDANCE
-    // =========================================================
-    //
-    // RIGHT BALL
-    //
-    // Raise LEFT hand
-    // Bend RIGHT
+    // RIGHT BALL GUIDANCE
     // =========================================================
 
     [Header("RIGHT Ball Guidance")]
@@ -81,19 +80,19 @@ public class ExerciseGuidanceManager : MonoBehaviour
 
     [SerializeField]
     private string raiseRightHandText =
-        "Raise your right hand";
+        "Get ready! Right hand up!";
 
     [SerializeField]
     private string bendLeftText =
-        "Bend to the left";
+        "Here it comes! Bend LEFT!";
 
     [SerializeField]
     private string raiseLeftHandText =
-        "Raise your left hand";
+        "Get ready! Left hand up!";
 
     [SerializeField]
     private string bendRightText =
-        "Bend to the right";
+        "Here it comes! Bend RIGHT!";
 
 
     // =========================================================
@@ -102,6 +101,8 @@ public class ExerciseGuidanceManager : MonoBehaviour
 
     private string currentShotDirection =
         "NONE";
+
+    private Coroutine guidanceCoroutine;
 
 
     // =========================================================
@@ -141,6 +142,12 @@ public class ExerciseGuidanceManager : MonoBehaviour
             ballController.onBallKick -=
                 HandleBallKick;
         }
+
+        if (guidanceCoroutine != null)
+        {
+            StopCoroutine(guidanceCoroutine);
+            guidanceCoroutine = null;
+        }
     }
 
 
@@ -155,6 +162,21 @@ public class ExerciseGuidanceManager : MonoBehaviour
             direction;
 
 
+        // -----------------------------------------------------
+        // STOP PREVIOUS GUIDANCE
+        // -----------------------------------------------------
+
+        if (guidanceCoroutine != null)
+        {
+            StopCoroutine(guidanceCoroutine);
+            guidanceCoroutine = null;
+        }
+
+
+        // -----------------------------------------------------
+        // SHOW HAND PREPARATION
+        // -----------------------------------------------------
+
         if (direction == "LEFT")
         {
             ShowGuidance(
@@ -162,21 +184,98 @@ public class ExerciseGuidanceManager : MonoBehaviour
                 raiseRightHandText,
                 raiseRightHandVoice
             );
-
-            return;
         }
-
-
-        if (direction == "RIGHT")
+        else if (direction == "RIGHT")
         {
             ShowGuidance(
                 raiseLeftHandImage,
                 raiseLeftHandText,
                 raiseLeftHandVoice
             );
-
-            return;
         }
+
+
+        // -----------------------------------------------------
+        // START PREPARATION TIMER
+        // -----------------------------------------------------
+
+        guidanceCoroutine =
+            StartCoroutine(
+                PrepareNextShot()
+            );
+    }
+
+
+    // =========================================================
+    // PREPARE NEXT SHOT
+    // =========================================================
+
+    private IEnumerator PrepareNextShot()
+    {
+        // -----------------------------------------------------
+        // WAIT FOR PLAYER TO PREPARE
+        // -----------------------------------------------------
+
+        yield return new WaitForSeconds(
+            preparationDelay
+        );
+
+
+        // -----------------------------------------------------
+        // SAFETY CHECK
+        // -----------------------------------------------------
+
+        if (ballController == null)
+        {
+            guidanceCoroutine = null;
+            yield break;
+        }
+
+
+        // -----------------------------------------------------
+        // SHOW BEND GUIDANCE FIRST
+        // -----------------------------------------------------
+        //
+        // IMPORTANT:
+        //
+        // The bend instruction appears BEFORE
+        // the kicker animation starts.
+        //
+        // -----------------------------------------------------
+
+        if (currentShotDirection == "LEFT")
+        {
+            ShowGuidance(
+                bendLeftImage,
+                bendLeftText,
+                bendLeftVoice
+            );
+        }
+        else if (currentShotDirection == "RIGHT")
+        {
+            ShowGuidance(
+                bendRightImage,
+                bendRightText,
+                bendRightVoice
+            );
+        }
+
+
+        // -----------------------------------------------------
+        // NOW START KICKER + KICK SEQUENCE
+        // -----------------------------------------------------
+        //
+        // BallController starts the kicker animation here.
+        //
+        // The existing 2.1 second animation-to-ball timing
+        // is preserved.
+        //
+        // -----------------------------------------------------
+
+        ballController.ExecutePreparedShot();
+
+
+        guidanceCoroutine = null;
     }
 
 
@@ -186,28 +285,12 @@ public class ExerciseGuidanceManager : MonoBehaviour
 
     private void HandleBallKick()
     {
-        if (currentShotDirection == "LEFT")
-        {
-            ShowGuidance(
-                bendLeftImage,
-                bendLeftText,
-                bendLeftVoice
-            );
-
-            return;
-        }
-
-
-        if (currentShotDirection == "RIGHT")
-        {
-            ShowGuidance(
-                bendRightImage,
-                bendRightText,
-                bendRightVoice
-            );
-
-            return;
-        }
+        // The bend guidance is already visible.
+        //
+        // Nothing needs to change here.
+        //
+        // This event remains available for any future
+        // guidance/gameplay synchronization.
     }
 
 
@@ -270,11 +353,9 @@ public class ExerciseGuidanceManager : MonoBehaviour
             return;
 
 
-        // Stop the previous instruction.
         guidanceAudioSource.Stop();
 
 
-        // Play the new ElevenLabs clip.
         guidanceAudioSource.PlayOneShot(
             clip
         );
@@ -287,16 +368,27 @@ public class ExerciseGuidanceManager : MonoBehaviour
 
     public void ClearGuidance()
     {
+        if (guidanceCoroutine != null)
+        {
+            StopCoroutine(guidanceCoroutine);
+            guidanceCoroutine = null;
+        }
+
+
         if (guidanceImage != null)
         {
-            guidanceImage.enabled = false;
+            guidanceImage.enabled =
+                false;
         }
 
 
         if (guidanceText != null)
         {
-            guidanceText.text = "";
-            guidanceText.enabled = false;
+            guidanceText.text =
+                "";
+
+            guidanceText.enabled =
+                false;
         }
 
 
