@@ -37,6 +37,13 @@ public class ExerciseGuidanceManager : MonoBehaviour
     // =========================================================
     // LEFT BALL GUIDANCE
     // =========================================================
+    //
+    // LEFT BALL
+    //
+    // Raise RIGHT hand
+    // Bend LEFT
+    //
+    // =========================================================
 
     [Header("LEFT Ball Guidance")]
 
@@ -55,6 +62,13 @@ public class ExerciseGuidanceManager : MonoBehaviour
 
     // =========================================================
     // RIGHT BALL GUIDANCE
+    // =========================================================
+    //
+    // RIGHT BALL
+    //
+    // Raise LEFT hand
+    // Bend RIGHT
+    //
     // =========================================================
 
     [Header("RIGHT Ball Guidance")]
@@ -104,6 +118,10 @@ public class ExerciseGuidanceManager : MonoBehaviour
 
     private Coroutine guidanceCoroutine;
 
+    // Guidance is disabled until UIManager explicitly
+    // starts the gameplay guidance.
+    private bool guidanceActive = false;
+
 
     // =========================================================
     // UNITY
@@ -116,6 +134,9 @@ public class ExerciseGuidanceManager : MonoBehaviour
             ballController =
                 FindFirstObjectByType<BallController>();
         }
+
+        // Make sure guidance is initially hidden.
+        HideGuidanceVisuals();
     }
 
 
@@ -143,11 +164,54 @@ public class ExerciseGuidanceManager : MonoBehaviour
                 HandleBallKick;
         }
 
-        if (guidanceCoroutine != null)
-        {
-            StopCoroutine(guidanceCoroutine);
-            guidanceCoroutine = null;
-        }
+        StopGuidanceCoroutine();
+    }
+
+
+    // =========================================================
+    // START GUIDANCE
+    // =========================================================
+    //
+    // UIManager calls this when the actual gameplay begins.
+    //
+    // =========================================================
+
+    public void StartGuidance()
+    {
+        guidanceActive = true;
+
+        StopGuidanceCoroutine();
+
+        currentShotDirection =
+            "NONE";
+
+        // Clear anything left from a previous game.
+        HideGuidanceVisuals();
+    }
+
+
+    // =========================================================
+    // STOP GUIDANCE
+    // =========================================================
+    //
+    // Useful when:
+    // - Game over
+    // - Win
+    // - Returning to menu
+    // - Restarting
+    //
+    // =========================================================
+
+    public void StopGuidance()
+    {
+        guidanceActive = false;
+
+        StopGuidanceCoroutine();
+
+        currentShotDirection =
+            "NONE";
+
+        HideGuidanceVisuals();
     }
 
 
@@ -158,6 +222,14 @@ public class ExerciseGuidanceManager : MonoBehaviour
     private void HandleShotPreparing(
         string direction)
     {
+        // -----------------------------------------------------
+        // IGNORE SHOTS BEFORE GAMEPLAY STARTS
+        // -----------------------------------------------------
+
+        if (!guidanceActive)
+            return;
+
+
         currentShotDirection =
             direction;
 
@@ -166,11 +238,7 @@ public class ExerciseGuidanceManager : MonoBehaviour
         // STOP PREVIOUS GUIDANCE
         // -----------------------------------------------------
 
-        if (guidanceCoroutine != null)
-        {
-            StopCoroutine(guidanceCoroutine);
-            guidanceCoroutine = null;
-        }
+        StopGuidanceCoroutine();
 
 
         // -----------------------------------------------------
@@ -225,7 +293,8 @@ public class ExerciseGuidanceManager : MonoBehaviour
         // SAFETY CHECK
         // -----------------------------------------------------
 
-        if (ballController == null)
+        if (!guidanceActive ||
+            ballController == null)
         {
             guidanceCoroutine = null;
             yield break;
@@ -233,13 +302,13 @@ public class ExerciseGuidanceManager : MonoBehaviour
 
 
         // -----------------------------------------------------
-        // SHOW BEND GUIDANCE FIRST
+        // SHOW BEND GUIDANCE
         // -----------------------------------------------------
         //
         // IMPORTANT:
         //
-        // The bend instruction appears BEFORE
-        // the kicker animation starts.
+        // Bend instruction appears BEFORE
+        // kicker animation starts.
         //
         // -----------------------------------------------------
 
@@ -262,13 +331,13 @@ public class ExerciseGuidanceManager : MonoBehaviour
 
 
         // -----------------------------------------------------
-        // NOW START KICKER + KICK SEQUENCE
+        // START KICKER + BALL SEQUENCE
         // -----------------------------------------------------
         //
         // BallController starts the kicker animation here.
         //
-        // The existing 2.1 second animation-to-ball timing
-        // is preserved.
+        // It preserves the existing 2.1 second delay
+        // between kicker animation and actual ball launch.
         //
         // -----------------------------------------------------
 
@@ -285,12 +354,15 @@ public class ExerciseGuidanceManager : MonoBehaviour
 
     private void HandleBallKick()
     {
-        // The bend guidance is already visible.
+        if (!guidanceActive)
+            return;
+
+        // The bend guidance is already displayed.
         //
-        // Nothing needs to change here.
+        // Nothing needs to be changed here.
         //
-        // This event remains available for any future
-        // guidance/gameplay synchronization.
+        // This event remains available for future
+        // synchronization if required.
     }
 
 
@@ -353,9 +425,11 @@ public class ExerciseGuidanceManager : MonoBehaviour
             return;
 
 
+        // Stop previous guidance voice.
         guidanceAudioSource.Stop();
 
 
+        // Play ElevenLabs guidance.
         guidanceAudioSource.PlayOneShot(
             clip
         );
@@ -363,24 +437,16 @@ public class ExerciseGuidanceManager : MonoBehaviour
 
 
     // =========================================================
-    // CLEAR GUIDANCE
+    // HIDE GUIDANCE VISUALS
     // =========================================================
 
-    public void ClearGuidance()
+    private void HideGuidanceVisuals()
     {
-        if (guidanceCoroutine != null)
-        {
-            StopCoroutine(guidanceCoroutine);
-            guidanceCoroutine = null;
-        }
-
-
         if (guidanceImage != null)
         {
             guidanceImage.enabled =
                 false;
         }
-
 
         if (guidanceText != null)
         {
@@ -391,14 +457,38 @@ public class ExerciseGuidanceManager : MonoBehaviour
                 false;
         }
 
-
         if (guidanceAudioSource != null)
         {
             guidanceAudioSource.Stop();
         }
+    }
 
 
-        currentShotDirection =
-            "NONE";
+    // =========================================================
+    // STOP GUIDANCE COROUTINE
+    // =========================================================
+
+    private void StopGuidanceCoroutine()
+    {
+        if (guidanceCoroutine != null)
+        {
+            StopCoroutine(
+                guidanceCoroutine
+            );
+
+            guidanceCoroutine = null;
+        }
+    }
+
+
+    // =========================================================
+    // CLEAR GUIDANCE
+    // =========================================================
+
+    public void ClearGuidance()
+    {
+        StopGuidance();
+
+        guidanceActive = false;
     }
 }

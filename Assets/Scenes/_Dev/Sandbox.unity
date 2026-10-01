@@ -17895,7 +17895,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 0, y: -100}
+  m_AnchoredPosition: {x: 600, y: -100}
   m_SizeDelta: {x: 100, y: 100}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &385073950
@@ -31539,7 +31539,7 @@ AudioSource:
   m_audioClip: {fileID: 0}
   m_Resource: {fileID: 0}
   m_PlayOnAwake: 0
-  m_Volume: 1
+  m_Volume: 0.358
   m_Pitch: 1
   Loop: 0
   Mute: 0
@@ -31765,16 +31765,16 @@ RectTransform:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 699741785}
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 1112652590}
+  m_Father: {fileID: 1705627240}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: -700, y: 350}
+  m_AnchoredPosition: {x: -700, y: -140}
   m_SizeDelta: {x: 360, y: 240}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &699741787
@@ -40567,7 +40567,7 @@ MonoBehaviour:
   guidanceImage: {fileID: 385073951}
   guidanceText: {fileID: 1071585989}
   guidanceAudioSource: {fileID: 1932756154}
-  preparationDelay: 5
+  preparationDelay: 2
   raiseRightHandImage: {fileID: 21300000, guid: 0614346013b80b64d8d34c9ae95a8790,
     type: 3}
   bendLeftImage: {fileID: 21300000, guid: e7fc86478cad32a468fef7a2d24e17f8, type: 3}
@@ -47163,7 +47163,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 0, y: -200}
+  m_AnchoredPosition: {x: 600, y: -200}
   m_SizeDelta: {x: 200, y: 50}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!1 &1072230722 stripped
@@ -48474,6 +48474,7 @@ MonoBehaviour:
   ballController: {fileID: 1399113277}
   settingsManager: {fileID: 247858915}
   kicker: {fileID: 919132147697583666}
+  exerciseGuidanceManager: {fileID: 897858211}
   flashImage: {fileID: 1237822724}
 --- !u!114 &1112652587
 MonoBehaviour:
@@ -48561,7 +48562,6 @@ RectTransform:
   - {fileID: 1237822726}
   - {fileID: 887089287}
   - {fileID: 224061452}
-  - {fileID: 699741786}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
@@ -60004,11 +60004,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 7be3ae5e3431e9542aa40291cbebe3d7, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  forwardForce: 30
-  upwardForce: 13
+  forwardForce: 40
+  upwardForce: 12
   startingZPos: 46
-  curveForce: 17
-  nextKickDelay: 5
+  curveForce: 30
+  nextKickDelay: 1
   kicker: {fileID: 919132147697583666}
   ballKickAnimator: {fileID: 5866666020150019826}
   player: {fileID: 103771008}
@@ -70690,6 +70690,7 @@ RectTransform:
   - {fileID: 1271164181}
   - {fileID: 385073949}
   - {fileID: 1071585991}
+  - {fileID: 699741786}
   m_Father: {fileID: 1112652590}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 1}
@@ -77828,7 +77829,7 @@ AudioSource:
   m_audioClip: {fileID: 0}
   m_Resource: {fileID: 0}
   m_PlayOnAwake: 0
-  m_Volume: 1
+  m_Volume: 0.261
   m_Pitch: 1
   Loop: 0
   Mute: 0
@@ -79205,7 +79206,7 @@ AudioSource:
   Mute: 0
   Spatialize: 0
   SpatializePostEffects: 0
-  Priority: 128
+  Priority: 43
   DopplerLevel: 1
   MinDistance: 1
   MaxDistance: 500
@@ -86757,7 +86758,7 @@ AudioSource:
   m_audioClip: {fileID: 0}
   m_Resource: {fileID: 0}
   m_PlayOnAwake: 0
-  m_Volume: 1
+  m_Volume: 0.229
   m_Pitch: 1
   Loop: 0
   Mute: 0
