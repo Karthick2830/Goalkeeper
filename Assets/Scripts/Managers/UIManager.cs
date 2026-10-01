@@ -4,6 +4,7 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
+using ExerciseGame.Core.Exercise;
 
 public class UIManager : MonoBehaviour
 {
@@ -22,9 +23,13 @@ public class UIManager : MonoBehaviour
     [SerializeField]
     private GameObject gameOverPanel;
 
+    // Existing panel reused as final exercise result panel
     [SerializeField]
     private GameObject winPanel;
 
+    // IMPORTANT:
+    // This panel is now the GAMEPLAY EXERCISE HUD.
+    // It should remain ACTIVE during gameplay.
     [SerializeField]
     private GameObject livesPanel;
 
@@ -42,47 +47,64 @@ public class UIManager : MonoBehaviour
 
 
     // =========================================================
-    // HUD TEXT
+    // GAMEPLAY HUD
     // =========================================================
 
-    [Header("HUD Text")]
+    [Header("Exercise HUD")]
 
+    [Tooltip("Current save count during gameplay.")]
     [SerializeField]
     private TextMeshProUGUI score;
 
+    [Tooltip("Left-side repetitions / target repetitions per side.")]
     [SerializeField]
-    private TextMeshProUGUI finalScoreText;
+    private TextMeshProUGUI repProgressText;
 
+    [Tooltip("Right-side repetitions / target repetitions per side.")]
     [SerializeField]
-    private TextMeshProUGUI winScoreText;
+    private TextMeshProUGUI rightRepProgressText;
 
+    [Tooltip("Current set / target sets.")]
     [SerializeField]
-    private TMP_Text countdownText;
+    private TextMeshProUGUI setProgressText;
+
+
 
     [SerializeField]
     private TextMeshProUGUI streakText;
 
+
+    // =========================================================
+    // RESULT PANEL
+    // =========================================================
+
+    [Header("Exercise Result")]
+
+    [Tooltip("Reps completed text on the existing Win Panel.")]
+    [SerializeField]
+    private TextMeshProUGUI winScoreText;
+
+    [Tooltip("Sets completed text on the existing Win Panel.")]
     [SerializeField]
     private TextMeshProUGUI highScoreText;
 
+    [Tooltip("Total saves text on the existing Win Panel.")]
+    [SerializeField]
+    private TextMeshProUGUI finalScoreText;
+
+    [Tooltip("Result title / message.")]
     [SerializeField]
     private TextMeshProUGUI winHighScoreText;
 
 
     // =========================================================
-    // LIVES ICONS
+    // COUNTDOWN
     // =========================================================
 
-    [Header("Lives Icons")]
+    [Header("Countdown")]
 
     [SerializeField]
-    private GameObject ball1;
-
-    [SerializeField]
-    private GameObject ball2;
-
-    [SerializeField]
-    private GameObject ball3;
+    private TMP_Text countdownText;
 
 
     // =========================================================
@@ -93,6 +115,9 @@ public class UIManager : MonoBehaviour
 
     [SerializeField]
     private GameManager gameManager;
+
+    [SerializeField]
+    private ExerciseManager exerciseManager;
 
     [SerializeField]
     private PlayerMovement player;
@@ -119,84 +144,118 @@ public class UIManager : MonoBehaviour
     [SerializeField]
     private Image flashImage;
 
+
+    // =========================================================
+    // STATE
+    // =========================================================
+
     private static bool skipMenu = false;
-
-    private static readonly Color SaveColor =
-        new Color(0f, 1f, 0f, 0.45f);
-
-    private static readonly Color GoalColor =
-        new Color(1f, 0f, 0f, 0.45f);
-
-
-    // =========================================================
-    // COROUTINES
-    // =========================================================
 
     private Coroutine _flashCoroutine;
 
-    private Coroutine _fadeOutCoroutine;
-
-    private Coroutine _holdGameCoroutine;
-
     private Coroutine _resumeCoroutine;
+
+
+    private static readonly Color SaveColor =
+        new Color(
+            0f,
+            1f,
+            0f,
+            0.45f
+        );
 
 
     // =========================================================
     // START
     // =========================================================
 
-    void Start()
+    private void Start()
     {
         // -----------------------------------------------------
-        // GUIDANCE MUST NOT PLAY DURING MENU
+        // GUIDANCE OFF WHILE IN MENU
         // -----------------------------------------------------
 
-        exerciseGuidanceManager?.StopGuidance();
+        if (exerciseGuidanceManager != null)
+        {
+            exerciseGuidanceManager.StopGuidance();
+        }
 
+
+        // -----------------------------------------------------
+        // NORMAL MENU
+        // -----------------------------------------------------
 
         if (!skipMenu)
         {
             Time.timeScale = 0f;
 
             pausePanel?.SetActive(false);
+
             gameOverPanel?.SetActive(false);
+
             winPanel?.SetActive(false);
+
             countdownPanel?.SetActive(false);
+
             settingsPanel?.SetActive(false);
+
+            settingsPanelFromGame?.SetActive(false);
+
             levelsPanel?.SetActive(false);
+
+            // IMPORTANT:
+            // This panel is the gameplay HUD.
+            // It is hidden in menu and enabled when gameplay starts.
             livesPanel?.SetActive(false);
 
             mainMenuPanel?.SetActive(true);
-
-            ball1?.SetActive(true);
-            ball2?.SetActive(true);
-            ball3?.SetActive(true);
         }
+
+
+        // -----------------------------------------------------
+        // SKIP MENU
+        // -----------------------------------------------------
+
         else
         {
             Time.timeScale = 0f;
 
             pausePanel?.SetActive(false);
+
             gameOverPanel?.SetActive(false);
+
             winPanel?.SetActive(false);
+
             countdownPanel?.SetActive(false);
+
             settingsPanel?.SetActive(false);
+
+            settingsPanelFromGame?.SetActive(false);
 
             levelsPanel?.SetActive(true);
 
             livesPanel?.SetActive(false);
 
             mainMenuPanel?.SetActive(false);
-
-            ball1?.SetActive(true);
-            ball2?.SetActive(true);
-            ball3?.SetActive(true);
         }
 
 
-        if (score != null)
-            score.text = "0";
+        // -----------------------------------------------------
+        // INITIAL HUD
+        // -----------------------------------------------------
 
+        UpdateExerciseHUD();
+
+
+        if (streakText != null)
+        {
+            streakText.gameObject.SetActive(false);
+        }
+
+
+        // -----------------------------------------------------
+        // GAME MANAGER EVENTS
+        // -----------------------------------------------------
 
         if (gameManager != null)
         {
@@ -205,268 +264,290 @@ public class UIManager : MonoBehaviour
 
             gameManager.OnStreakMilestone +=
                 ShowStreakText;
+        }
 
-            gameManager.OnLiveLost +=
-                HandleLiveLost;
 
-            gameManager.OnWin +=
-                HandleWin;
+        // -----------------------------------------------------
+        // EXERCISE MANAGER EVENTS
+        // -----------------------------------------------------
+
+        if (exerciseManager != null)
+        {
+            exerciseManager.OnExerciseCompleted +=
+                HandleExerciseCompleted;
         }
     }
 
 
     // =========================================================
-    // SCORE
+    // UPDATE
     // =========================================================
 
-    // Called by BallController when ball resets after a save.
+    private void Update()
+    {
+        // Update exercise HUD while the exercise is active.
+        if (exerciseManager != null &&
+            exerciseManager.IsRunning &&
+            !exerciseManager.IsPaused)
+        {
+            UpdateExerciseHUD();
+        }
+    }
+
+
+    // =========================================================
+    // EXERCISE HUD
+    // =========================================================
+
+    private void UpdateExerciseHUD()
+    {
+        if (exerciseManager != null)
+        {
+            // -------------------------------------------------
+            // REP
+            // -------------------------------------------------
+
+            if (repProgressText != null)
+            {
+                repProgressText.text =
+                    "LEFT  " +
+                    exerciseManager.CurrentLeftRep +
+                    " / " +
+                    exerciseManager.TargetRepsPerSide;
+            }
+
+
+            // -------------------------------------------------
+            // RIGHT REP
+            // -------------------------------------------------
+
+            if (rightRepProgressText != null)
+            {
+                rightRepProgressText.text =
+                    "RIGHT  " +
+                    exerciseManager.CurrentRightRep +
+                    " / " +
+                    exerciseManager.TargetRepsPerSide;
+            }
+
+
+            // -------------------------------------------------
+            // SET
+            // -------------------------------------------------
+
+            if (setProgressText != null)
+            {
+                setProgressText.text =
+                    "SETS  " +
+                    exerciseManager.CurrentSet +
+                    " / " +
+                    exerciseManager.TargetSets;
+            }
+        }
+
+
+        // -----------------------------------------------------
+        // SAVES
+        // -----------------------------------------------------
+
+        int saves = 0;
+
+        if (gameManager != null)
+        {
+            saves = gameManager.TotalSaves;
+        }
+
+
+        if (score != null)
+        {
+            score.text =
+                saves.ToString();
+        }
+
+
+
+    }
+
+
+    // =========================================================
+    // SAVE
+    // =========================================================
+
     public void ScoreIncrease()
     {
-        FlashScreen(SaveColor);
+        FlashScreen(
+            SaveColor
+        );
 
-        gameManager.RegisterSave();
+
+        if (gameManager != null)
+        {
+            gameManager.RegisterSave();
+        }
+
+
+        UpdateExerciseHUD();
     }
 
 
-    // Called by GoalLine when ball crosses the goal line.
+    // =========================================================
+    // MISSED BALL
+    // =========================================================
+    //
+    // IMPORTANT:
+    // A missed ball does NOT cause game over.
+    //
+    // It only resets the save streak.
+    //
+    // =========================================================
+
     public void Losegoal()
     {
-        gameManager?.RegisterGoal();
+        if (gameManager != null)
+        {
+            gameManager.RegisterGoal();
+        }
 
-        VFXManager.instance.PlayGroundTouchEffect();
+
+        if (VFXManager.instance != null)
+        {
+            VFXManager.instance
+                .PlayGroundTouchEffect();
+        }
+
+
+        UpdateExerciseHUD();
     }
 
+
+    // =========================================================
+    // SAVE EVENT
+    // =========================================================
 
     private void HandleSaveScored(
         int totalSaves)
     {
-        if (score != null)
-            score.text =
-                totalSaves.ToString();
+        UpdateExerciseHUD();
     }
 
 
     // =========================================================
-    // LIVES
+    // EXERCISE COMPLETED
     // =========================================================
 
-    private void HandleLiveLost(
-        int livesRemaining)
+    private void HandleExerciseCompleted(
+        int totalCompletedReps,
+        int totalTargetReps,
+        int completedSets,
+        int targetSets)
     {
-        if (livesRemaining == 2)
+        Debug.Log(
+            "[UIManager] EXERCISE COMPLETED | " +
+            $"Reps: {totalCompletedReps}/{totalTargetReps} | " +
+            $"Sets: {completedSets}/{targetSets} | " +
+            $"Saves: {GetTotalSaves()}"
+        );
+
+
+        // -----------------------------------------------------
+        // STOP GUIDANCE
+        // -----------------------------------------------------
+
+        if (exerciseGuidanceManager != null)
         {
-            ball3?.SetActive(false);
+            exerciseGuidanceManager.StopGuidance();
         }
-        else if (livesRemaining == 1)
-        {
-            ball2?.SetActive(false);
-        }
-        else if (livesRemaining <= 0)
-        {
-            ball1?.SetActive(false);
-
-            // Stop exercise guidance immediately.
-            exerciseGuidanceManager?.StopGuidance();
-
-            ballController?.StopBall();
-
-            if (ballController != null)
-                ballController.enabled = false;
-
-            if (player != null)
-                player.enabled = false;
-
-            _holdGameCoroutine =
-                StartCoroutine(
-                    HoldGame()
-                );
-        }
-    }
 
 
-    // =========================================================
-    // WIN
-    // =========================================================
-
-    private void HandleWin(
-        int totalSaves,
-        int best)
-    {
-        // Stop exercise guidance.
-        exerciseGuidanceManager?.StopGuidance();
-
-        ballController?.StopBall();
+        // -----------------------------------------------------
+        // STOP BALL
+        // -----------------------------------------------------
 
         if (ballController != null)
+        {
+            ballController.StopBall();
             ballController.enabled = false;
+        }
+
+
+        // -----------------------------------------------------
+        // STOP PLAYER
+        // -----------------------------------------------------
 
         if (player != null)
+        {
             player.enabled = false;
+        }
 
+
+        // -----------------------------------------------------
+        // HIDE GAMEPLAY HUD
+        // -----------------------------------------------------
+
+        livesPanel?.SetActive(false);
+
+
+        // -----------------------------------------------------
+        // RESULT PANEL
+        // -----------------------------------------------------
 
         if (winScoreText != null)
         {
             winScoreText.text =
-                totalSaves + " SAVES";
-        }
-
-
-        if (winHighScoreText != null)
-        {
-            winHighScoreText.text =
-                "BEST: " +
-                best.ToString("N0");
-        }
-
-
-        Time.timeScale = 0f;
-
-        livesPanel.SetActive(false);
-
-        winPanel?.SetActive(true);
-    }
-
-
-    // =========================================================
-    // FADE OUT
-    // =========================================================
-
-    private IEnumerator FadeOutGameObjects()
-    {
-        exerciseGuidanceManager?.StopGuidance();
-
-        ballController?.StopBall();
-
-        if (ballController != null)
-            ballController.enabled = false;
-
-        if (player != null)
-            player.enabled = false;
-
-
-        GameObject[] fadeObjects = null;
-
-        float duration = 1f;
-
-        float timer = 0f;
-
-
-        Vector3[] initialScales =
-            new Vector3[fadeObjects.Length];
-
-
-        for (int i = 0;
-             i < fadeObjects.Length;
-             i++)
-        {
-            if (fadeObjects[i] != null)
-            {
-                initialScales[i] =
-                    fadeObjects[i]
-                        .transform
-                        .localScale;
-            }
-        }
-
-
-        while (timer < duration)
-        {
-            timer +=
-                Time.unscaledDeltaTime;
-
-            float s =
-                1f -
-                timer / duration;
-
-
-            for (int i = 0;
-                 i < fadeObjects.Length;
-                 i++)
-            {
-                if (fadeObjects[i] != null)
-                {
-                    fadeObjects[i]
-                        .transform
-                        .localScale =
-                        initialScales[i] * s;
-                }
-            }
-
-            yield return null;
-        }
-
-
-        for (int i = 0;
-             i < fadeObjects.Length;
-             i++)
-        {
-            fadeObjects[i]?.SetActive(false);
-        }
-
-
-        _holdGameCoroutine =
-            StartCoroutine(
-                HoldGame()
-            );
-    }
-
-
-    // =========================================================
-    // HOLD GAME
-    // =========================================================
-
-    private IEnumerator HoldGame()
-    {
-        yield return new WaitForSeconds(2f);
-
-        AudioManager.instance.PlayGameOver();
-
-        ShowGameOverPanel();
-    }
-
-
-    // =========================================================
-    // GAME OVER PANEL
-    // =========================================================
-
-    private void ShowGameOverPanel()
-    {
-        int totalSaves =
-            gameManager != null
-                ? gameManager.TotalSaves
-                : 0;
-
-
-        int index =
-            PlayerPrefs.GetInt(
-                "Level",
-                0
-            );
-
-
-        livesPanel.SetActive(false);
-
-        Time.timeScale = 0f;
-
-
-        if (finalScoreText != null)
-        {
-            finalScoreText.text =
-                totalSaves + " SAVES";
+                "REPS  " +
+                totalCompletedReps +
+                " / " +
+                totalTargetReps;
         }
 
 
         if (highScoreText != null)
         {
             highScoreText.text =
-                "TARGET: " +
-                gameManager
-                    .winTargets[index]
-                    .ToString("N0");
+                "SETS  " +
+                completedSets +
+                " / " +
+                targetSets;
         }
 
 
-        gameOverPanel?.SetActive(true);
+        if (finalScoreText != null)
+        {
+            finalScoreText.text =
+                "SAVES  " +
+                GetTotalSaves();
+        }
+
+
+        if (winHighScoreText != null)
+        {
+            winHighScoreText.text =
+                "EXERCISE COMPLETED";
+        }
+
+
+        // -----------------------------------------------------
+        // SHOW RESULT
+        // -----------------------------------------------------
+
+        Time.timeScale = 0f;
+
+        winPanel?.SetActive(true);
+    }
+
+
+    // =========================================================
+    // TOTAL SAVES
+    // =========================================================
+
+    private int GetTotalSaves()
+    {
+        if (gameManager == null)
+        {
+            return 0;
+        }
+
+        return gameManager.TotalSaves;
     }
 
 
@@ -493,10 +574,11 @@ public class UIManager : MonoBehaviour
 
 
     // =========================================================
-    // SET DIFFICULTY / ENTER GAME
+    // START EXERCISE
     // =========================================================
 
-    public void SetDifficulty(int level)
+    public void SetDifficulty(
+        int level)
     {
         PlayerPrefs.SetInt(
             "Level",
@@ -505,46 +587,116 @@ public class UIManager : MonoBehaviour
 
 
         // -----------------------------------------------------
-        // INITIALIZE GAME
+        // RESET GAME MANAGER
         // -----------------------------------------------------
 
-        gameManager?.InitGame();
+        if (gameManager != null)
+        {
+            gameManager.InitGame();
 
-        gameManager.OnGameStarted?.Invoke();
-
-
-        // -----------------------------------------------------
-        // GAME AUDIO
-        // -----------------------------------------------------
-
-        AudioManager.instance.StopBgm();
-
-        AudioManager.instance.PlayCrowdShoutAmbience();
+            gameManager.OnGameStarted?.Invoke();
+        }
 
 
         // -----------------------------------------------------
-        // HIDE TRANSITION PANELS
+        // RESET EXERCISE
         // -----------------------------------------------------
 
-        winPanel?.SetActive(false);
-        gameOverPanel?.SetActive(false);
+        if (exerciseManager != null)
+        {
+            exerciseManager.ResetExercise();
+        }
+
+
+        // -----------------------------------------------------
+        // HIDE MENUS
+        // -----------------------------------------------------
+
+        mainMenuPanel?.SetActive(false);
+
         levelsPanel?.SetActive(false);
 
+        pausePanel?.SetActive(false);
+
+        gameOverPanel?.SetActive(false);
+
+        winPanel?.SetActive(false);
+
+        settingsPanel?.SetActive(false);
+
+        settingsPanelFromGame?.SetActive(false);
+
 
         // -----------------------------------------------------
-        // SHOW GAME HUD
+        // SHOW EXERCISE HUD
         // -----------------------------------------------------
 
+        // IMPORTANT:
+        // This replaces the old Lives UI.
         livesPanel?.SetActive(true);
 
 
+        // -----------------------------------------------------
+        // RESET HUD
+        // -----------------------------------------------------
+
         if (score != null)
+        {
             score.text = "0";
+        }
 
 
-        ball1?.SetActive(true);
-        ball2?.SetActive(true);
-        ball3?.SetActive(true);
+        if (repProgressText != null)
+        {
+            repProgressText.text =
+                "LEFT  0 / " +
+                (exerciseManager != null
+                    ? exerciseManager.TargetRepsPerSide
+                    : 0);
+        }
+
+
+        if (rightRepProgressText != null)
+        {
+            rightRepProgressText.text =
+                "RIGHT  0 / " +
+                (exerciseManager != null
+                    ? exerciseManager.TargetRepsPerSide
+                    : 0);
+        }
+
+
+        if (setProgressText != null)
+        {
+            setProgressText.text =
+                "SETS  1 / " +
+                (exerciseManager != null
+                    ? exerciseManager.TargetSets
+                    : 0);
+        }
+
+
+
+
+
+        // -----------------------------------------------------
+        // AUDIO
+        // -----------------------------------------------------
+
+        if (AudioManager.instance != null)
+        {
+            AudioManager.instance.StopBgm();
+
+            AudioManager.instance
+                .PlayCrowdShoutAmbience();
+        }
+
+
+        // -----------------------------------------------------
+        // TIME
+        // -----------------------------------------------------
+
+        Time.timeScale = 1f;
 
 
         // -----------------------------------------------------
@@ -552,34 +704,33 @@ public class UIManager : MonoBehaviour
         // -----------------------------------------------------
 
         if (player != null)
+        {
             player.enabled = true;
+        }
 
 
         // -----------------------------------------------------
-        // START GAME
+        // START EXERCISE
         // -----------------------------------------------------
 
-        Time.timeScale = 1f;
-
-
-        // -----------------------------------------------------
-        // START EXERCISE GUIDANCE FIRST
-        // -----------------------------------------------------
-        //
-        // IMPORTANT:
-        //
-        // This MUST happen BEFORE ResetGame().
-        //
-        // ResetGame() immediately starts BallWait(),
-        // which fires onShotPreparing().
-        //
-        // -----------------------------------------------------
-
-        exerciseGuidanceManager?.StartGuidance();
+        if (exerciseManager != null)
+        {
+            exerciseManager.StartExercise();
+        }
 
 
         // -----------------------------------------------------
-        // ENABLE AND RESET BALL
+        // START GUIDANCE
+        // -----------------------------------------------------
+
+        if (exerciseGuidanceManager != null)
+        {
+            exerciseGuidanceManager.StartGuidance();
+        }
+
+
+        // -----------------------------------------------------
+        // START BALL
         // -----------------------------------------------------
 
         if (ballController != null)
@@ -590,15 +741,19 @@ public class UIManager : MonoBehaviour
 
             ballController.ResetGame();
         }
+
+
+        // -----------------------------------------------------
+        // FINAL HUD UPDATE
+        // -----------------------------------------------------
+
+        UpdateExerciseHUD();
     }
 
 
     // =========================================================
-    // MAIN MENU → LEVEL SELECT
+    // START BUTTON
     // =========================================================
-
-    // From main menu "Play" button.
-    // No scene reload needed.
 
     public void StartButton()
     {
@@ -614,15 +769,35 @@ public class UIManager : MonoBehaviour
 
     public void ShowMenu()
     {
-        exerciseGuidanceManager?.StopGuidance();
+        if (exerciseGuidanceManager != null)
+        {
+            exerciseGuidanceManager.StopGuidance();
+        }
+
+
+        if (exerciseManager != null)
+        {
+            exerciseManager.EndExercise();
+        }
+
+
+        if (ballController != null)
+        {
+            ballController.StopBall();
+        }
+
+
+        livesPanel?.SetActive(false);
+
+        pausePanel?.SetActive(false);
+
+        gameOverPanel?.SetActive(false);
+
+        winPanel?.SetActive(false);
 
         mainMenuPanel?.SetActive(false);
 
         levelsPanel?.SetActive(true);
-
-        pausePanel?.SetActive(false);
-
-        livesPanel.SetActive(false);
     }
 
 
@@ -643,10 +818,21 @@ public class UIManager : MonoBehaviour
     public void ShowPause()
     {
         if (pausePanel == null)
+        {
             return;
+        }
 
 
-        AudioManager.instance.DisableSource();
+        if (exerciseManager != null)
+        {
+            exerciseManager.PauseExercise();
+        }
+
+
+        if (AudioManager.instance != null)
+        {
+            AudioManager.instance.DisableSource();
+        }
 
 
         pausePanel.SetActive(true);
@@ -659,11 +845,15 @@ public class UIManager : MonoBehaviour
 
 
         if (player != null)
+        {
             player.enabled = false;
+        }
 
 
         if (ballController != null)
+        {
             ballController.enabled = false;
+        }
 
 
         pausePanel.transform.DOKill();
@@ -688,12 +878,16 @@ public class UIManager : MonoBehaviour
 
     public void ResumeButton()
     {
-        AudioManager.instance.EnableSource();
+        if (AudioManager.instance != null)
+        {
+            AudioManager.instance.EnableSource();
+        }
 
 
         if (pausePanel != null)
         {
             Time.timeScale = 1f;
+
 
             pausePanel.transform.DOKill();
 
@@ -712,11 +906,15 @@ public class UIManager : MonoBehaviour
                 {
                     pausePanel.SetActive(false);
 
-                    settingsPanel.SetActive(false);
+                    if (settingsPanel != null)
+                    {
+                        settingsPanel.SetActive(false);
+                    }
 
-                    StartCoroutine(
-                        ResumeCountdown()
-                    );
+                    _resumeCoroutine =
+                        StartCoroutine(
+                            ResumeCountdown()
+                        );
                 });
         }
         else
@@ -741,6 +939,7 @@ public class UIManager : MonoBehaviour
                 0
             );
 
+
         SetDifficulty(level);
     }
 
@@ -751,32 +950,31 @@ public class UIManager : MonoBehaviour
 
     public void HomeButton()
     {
-        exerciseGuidanceManager?.StopGuidance();
+        if (exerciseGuidanceManager != null)
+        {
+            exerciseGuidanceManager.StopGuidance();
+        }
+
+
+        if (exerciseManager != null)
+        {
+            exerciseManager.EndExercise();
+        }
+
+
+        if (ballController != null)
+        {
+            ballController.StopBall();
+        }
+
 
         skipMenu = false;
+
 
         SceneManager.LoadScene(
             SceneManager
                 .GetActiveScene()
                 .buildIndex
-        );
-    }
-
-
-    // =========================================================
-    // RESUME FROM SETTINGS
-    // =========================================================
-
-    public void ResumeFromSettings()
-    {
-        settingsPanelFromGame?.SetActive(false);
-
-        Time.timeScale = 1f;
-
-        AudioManager.instance.EnableSource();
-
-        StartCoroutine(
-            ResumeCountdown()
         );
     }
 
@@ -795,9 +993,39 @@ public class UIManager : MonoBehaviour
     {
         settingsPanelFromGame?.SetActive(true);
 
-        AudioManager.instance.DisableSource();
+
+        if (AudioManager.instance != null)
+        {
+            AudioManager.instance.DisableSource();
+        }
+
 
         Time.timeScale = 0f;
+    }
+
+
+    // =========================================================
+    // RESUME FROM SETTINGS
+    // =========================================================
+
+    public void ResumeFromSettings()
+    {
+        settingsPanelFromGame?.SetActive(false);
+
+
+        Time.timeScale = 1f;
+
+
+        if (AudioManager.instance != null)
+        {
+            AudioManager.instance.EnableSource();
+        }
+
+
+        _resumeCoroutine =
+            StartCoroutine(
+                ResumeCountdown()
+            );
     }
 
 
@@ -808,6 +1036,7 @@ public class UIManager : MonoBehaviour
     public void NewGame()
     {
         skipMenu = true;
+
 
         SceneManager.LoadScene(
             SceneManager
@@ -825,7 +1054,9 @@ public class UIManager : MonoBehaviour
         Color color)
     {
         if (flashImage == null)
+        {
             return;
+        }
 
 
         if (_flashCoroutine != null)
@@ -849,6 +1080,7 @@ public class UIManager : MonoBehaviour
         flashImage.color =
             color;
 
+
         flashImage.gameObject
             .SetActive(true);
 
@@ -864,7 +1096,7 @@ public class UIManager : MonoBehaviour
                 Time.unscaledDeltaTime;
 
 
-            float a =
+            float alpha =
                 Mathf.Lerp(
                     color.a,
                     0f,
@@ -877,7 +1109,7 @@ public class UIManager : MonoBehaviour
                     color.r,
                     color.g,
                     color.b,
-                    a
+                    alpha
                 );
 
 
@@ -898,18 +1130,24 @@ public class UIManager : MonoBehaviour
         int streak)
     {
         if (streakText == null)
+        {
             return;
+        }
 
 
-        AudioManager.instance
-            .PlayStreakSound();
+        if (AudioManager.instance != null)
+        {
+            AudioManager.instance
+                .PlayStreakSound();
+        }
 
 
         streakText.DOKill();
 
 
         streakText.text =
-            streak + " SAVES!";
+            streak +
+            " SAVES!";
 
 
         streakText.gameObject
@@ -962,15 +1200,20 @@ public class UIManager : MonoBehaviour
 
         countdownPanel?.SetActive(true);
 
+
         Time.timeScale = 0f;
 
 
         if (player != null)
+        {
             player.enabled = false;
+        }
 
 
         if (ballController != null)
+        {
             ballController.enabled = false;
+        }
 
 
         string[] counts =
@@ -1005,11 +1248,24 @@ public class UIManager : MonoBehaviour
 
 
         if (ballController != null)
+        {
             ballController.enabled = true;
+        }
 
 
         if (player != null)
+        {
             player.enabled = true;
+        }
+
+
+        if (exerciseManager != null)
+        {
+            exerciseManager.ResumeExercise();
+        }
+
+
+        UpdateExerciseHUD();
     }
 
 
@@ -1017,7 +1273,7 @@ public class UIManager : MonoBehaviour
     // DESTROY
     // =========================================================
 
-    void OnDestroy()
+    private void OnDestroy()
     {
         if (gameManager != null)
         {
@@ -1026,31 +1282,22 @@ public class UIManager : MonoBehaviour
 
             gameManager.OnStreakMilestone -=
                 ShowStreakText;
+        }
 
-            gameManager.OnLiveLost -=
-                HandleLiveLost;
 
-            gameManager.OnWin -=
-                HandleWin;
+        if (exerciseManager != null)
+        {
+            exerciseManager.OnExerciseCompleted -=
+                HandleExerciseCompleted;
         }
 
 
         if (_flashCoroutine != null)
+        {
             StopCoroutine(
                 _flashCoroutine
             );
-
-
-        if (_fadeOutCoroutine != null)
-            StopCoroutine(
-                _fadeOutCoroutine
-            );
-
-
-        if (_holdGameCoroutine != null)
-            StopCoroutine(
-                _holdGameCoroutine
-            );
+        }
 
 
         if (_resumeCoroutine != null)
@@ -1058,16 +1305,9 @@ public class UIManager : MonoBehaviour
             StopCoroutine(
                 _resumeCoroutine
             );
-
-            Time.timeScale = 1f;
-
-
-            if (ballController != null)
-                ballController.enabled = true;
-
-
-            if (player != null)
-                player.enabled = true;
         }
+
+
+        Time.timeScale = 1f;
     }
 }

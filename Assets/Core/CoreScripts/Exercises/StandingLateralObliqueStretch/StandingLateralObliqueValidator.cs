@@ -147,6 +147,16 @@ namespace ExerciseGame.Exercises.StandingLateralObliqueStretch
             private set;
         }
 
+        /// <summary>
+        /// Direction of the repetition that was most recently completed.
+        /// This remains available after the validator resets ActiveArm/ExpectedBendDirection.
+        /// </summary>
+        public string CompletedRepDirection
+        {
+            get;
+            private set;
+        }
+
         public string DetectedBendDirection
         {
             get
@@ -318,6 +328,9 @@ namespace ExerciseGame.Exercises.StandingLateralObliqueStretch
 
             CompletedReps =
                 0;
+
+            CompletedRepDirection =
+                "NONE";
 
             neutralTimer =
                 0f;
@@ -1049,6 +1062,11 @@ namespace ExerciseGame.Exercises.StandingLateralObliqueStretch
 
                         IsRepCompleted =
                             true;
+
+                        // Preserve the side of the completed repetition
+                        // before ActiveArm/ExpectedBendDirection are reset.
+                        CompletedRepDirection =
+                            ExpectedBendDirection;
 
                         CompletedReps++;
 

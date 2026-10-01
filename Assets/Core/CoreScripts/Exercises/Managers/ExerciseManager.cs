@@ -1,5 +1,7 @@
+using System;
 using UnityEngine;
 using ExerciseGame.Core.Exercise;
+using ExerciseGame.Exercises.StandingLateralObliqueStretch;
 
 namespace ExerciseGame.Core.Exercise
 {
@@ -11,6 +13,7 @@ namespace ExerciseGame.Core.Exercise
     /// - Target number of sets
     /// - Current rep
     /// - Current set
+    /// - Total completed reps
     /// - Start / pause / resume / stop
     /// - Detect completed repetitions
     /// - Detect set completion
@@ -27,7 +30,8 @@ namespace ExerciseGame.Core.Exercise
         [Header("References")]
 
         [Tooltip(
-            "Component implementing IExerciseValidator.")]
+            "Component implementing IExerciseValidator."
+        )]
         [SerializeField]
         private MonoBehaviour validationTesterComponent;
 
@@ -42,14 +46,16 @@ namespace ExerciseGame.Core.Exercise
         [Header("Exercise Target")]
 
         [Tooltip(
-            "Number of repetitions required in each set.")]
+            "Number of repetitions required on EACH side in each set."
+        )]
         [Min(1)]
         [SerializeField]
         private int targetRepsPerSet = 10;
 
 
         [Tooltip(
-            "Number of sets required to complete the exercise.")]
+            "Number of sets required to complete the exercise."
+        )]
         [Min(1)]
         [SerializeField]
         private int targetSets = 3;
@@ -62,9 +68,10 @@ namespace ExerciseGame.Core.Exercise
         [Header("Startup")]
 
         [Tooltip(
-            "Automatically start the exercise when the scene starts.")]
+            "Automatically start the exercise when the scene starts."
+        )]
         [SerializeField]
-        private bool startAutomatically = true;
+        private bool startAutomatically = false;
 
 
         // =========================================================
@@ -83,13 +90,36 @@ namespace ExerciseGame.Core.Exercise
 
         private int currentRep;
 
+        private int currentLeftRep;
+
+        private int currentRightRep;
+
         private int currentSet;
+
+        private int totalCompletedReps;
 
         private bool isRunning;
 
         private bool isPaused;
 
         private bool exerciseCompleted;
+
+
+        // =========================================================
+        // EVENTS
+        // =========================================================
+
+        /// <summary>
+        /// Fired whenever a complete exercise session is finished.
+        ///
+        /// Parameters:
+        /// 1. Total completed reps
+        /// 2. Total target reps
+        /// 3. Completed sets
+        /// 4. Target sets
+        /// </summary>
+        public event Action<int, int, int, int>
+            OnExerciseCompleted;
 
 
         // =========================================================
@@ -100,8 +130,24 @@ namespace ExerciseGame.Core.Exercise
             currentRep;
 
 
+        public int CurrentLeftRep =>
+            currentLeftRep;
+
+
+        public int CurrentRightRep =>
+            currentRightRep;
+
+
+        public int TargetRepsPerSide =>
+            targetRepsPerSet;
+
+
         public int CurrentSet =>
             currentSet;
+
+
+        public int TotalCompletedReps =>
+            totalCompletedReps;
 
 
         public int TargetRepsPerSet =>
@@ -110,6 +156,10 @@ namespace ExerciseGame.Core.Exercise
 
         public int TargetSets =>
             targetSets;
+
+
+        public int TotalTargetReps =>
+            targetRepsPerSet * 2 * targetSets;
 
 
         public bool IsRunning =>
@@ -176,7 +226,8 @@ namespace ExerciseGame.Core.Exercise
             {
                 Debug.LogError(
                     "[ExerciseManager] " +
-                    "Validation Tester Component is not assigned.");
+                    "Validation Tester Component is not assigned."
+                );
 
                 return;
             }
@@ -192,7 +243,8 @@ namespace ExerciseGame.Core.Exercise
                 Debug.LogError(
                     "[ExerciseManager] " +
                     "Assigned component does not implement " +
-                    "IExerciseValidator.");
+                    "IExerciseValidator."
+                );
             }
         }
 
@@ -214,7 +266,8 @@ namespace ExerciseGame.Core.Exercise
                 Debug.LogError(
                     "[ExerciseManager] " +
                     "Cannot start exercise. " +
-                    "No IExerciseValidator assigned.");
+                    "No IExerciseValidator assigned."
+                );
 
                 return;
             }
@@ -222,7 +275,13 @@ namespace ExerciseGame.Core.Exercise
 
             currentRep = 0;
 
+            currentLeftRep = 0;
+
+            currentRightRep = 0;
+
             currentSet = 1;
+
+            totalCompletedReps = 0;
 
             isRunning = true;
 
@@ -237,21 +296,31 @@ namespace ExerciseGame.Core.Exercise
             if (showDebugLogs)
             {
                 Debug.Log(
-                    "[ExerciseManager] =============================");
+                    "[ExerciseManager] ============================="
+                );
 
                 Debug.Log(
-                    "[ExerciseManager] EXERCISE STARTED");
+                    "[ExerciseManager] EXERCISE STARTED"
+                );
 
                 Debug.Log(
                     $"[ExerciseManager] " +
-                    $"Set: {currentSet}/{targetSets}");
+                    $"Set: {currentSet}/{targetSets}"
+                );
 
                 Debug.Log(
                     $"[ExerciseManager] " +
-                    $"Rep: {currentRep}/{targetRepsPerSet}");
+                    $"Rep: {currentRep}/{targetRepsPerSet}"
+                );
 
                 Debug.Log(
-                    "[ExerciseManager] =============================");
+                    $"[ExerciseManager] " +
+                    $"Total: {totalCompletedReps}/{TotalTargetReps}"
+                );
+
+                Debug.Log(
+                    "[ExerciseManager] ============================="
+                );
             }
         }
 
@@ -275,19 +344,20 @@ namespace ExerciseGame.Core.Exercise
             isPaused = true;
 
 
-            // Pause the concrete tester if it supports it.
             if (validationTesterComponent != null)
             {
                 validationTesterComponent.SendMessage(
                     "PauseValidation",
-                    SendMessageOptions.DontRequireReceiver);
+                    SendMessageOptions.DontRequireReceiver
+                );
             }
 
 
             if (showDebugLogs)
             {
                 Debug.Log(
-                    "[ExerciseManager] Exercise paused.");
+                    "[ExerciseManager] Exercise paused."
+                );
             }
         }
 
@@ -311,19 +381,20 @@ namespace ExerciseGame.Core.Exercise
             isPaused = false;
 
 
-            // Resume the concrete tester if it supports it.
             if (validationTesterComponent != null)
             {
                 validationTesterComponent.SendMessage(
                     "ResumeValidation",
-                    SendMessageOptions.DontRequireReceiver);
+                    SendMessageOptions.DontRequireReceiver
+                );
             }
 
 
             if (showDebugLogs)
             {
                 Debug.Log(
-                    "[ExerciseManager] Exercise resumed.");
+                    "[ExerciseManager] Exercise resumed."
+                );
             }
         }
 
@@ -364,28 +435,39 @@ namespace ExerciseGame.Core.Exercise
             {
                 validationTesterComponent.SendMessage(
                     "PauseValidation",
-                    SendMessageOptions.DontRequireReceiver);
+                    SendMessageOptions.DontRequireReceiver
+                );
             }
 
 
             if (showDebugLogs)
             {
                 Debug.Log(
-                    "[ExerciseManager] =============================");
+                    "[ExerciseManager] ============================="
+                );
 
                 Debug.Log(
-                    "[ExerciseManager] EXERCISE ENDED");
+                    "[ExerciseManager] EXERCISE ENDED"
+                );
 
                 Debug.Log(
                     $"[ExerciseManager] " +
-                    $"Set: {currentSet}/{targetSets}");
+                    $"Set: {currentSet}/{targetSets}"
+                );
 
                 Debug.Log(
                     $"[ExerciseManager] " +
-                    $"Rep: {currentRep}/{targetRepsPerSet}");
+                    $"Rep: {currentRep}/{targetRepsPerSet}"
+                );
 
                 Debug.Log(
-                    "[ExerciseManager] =============================");
+                    $"[ExerciseManager] " +
+                    $"Total Reps: {totalCompletedReps}/{TotalTargetReps}"
+                );
+
+                Debug.Log(
+                    "[ExerciseManager] ============================="
+                );
             }
         }
 
@@ -400,35 +482,68 @@ namespace ExerciseGame.Core.Exercise
                 return;
 
 
-            // =====================================================
-            // MANAGER COUNTS THE REP
-            // =====================================================
+            // The validator must tell us which side was actually
+            // completed. This is captured before ConsumeRep().
+            StandingLateralObliqueValidator obliqueValidator =
+                validationTester as StandingLateralObliqueValidator;
 
-            currentRep++;
+            string completedDirection =
+                obliqueValidator != null
+                    ? obliqueValidator.CompletedRepDirection
+                    : "NONE";
+
+
+            // -----------------------------------------------------
+            // COUNT THE CORRECT SIDE
+            // -----------------------------------------------------
+
+            if (completedDirection == "LEFT")
+            {
+                if (currentLeftRep < targetRepsPerSet)
+                    currentLeftRep++;
+            }
+            else if (completedDirection == "RIGHT")
+            {
+                if (currentRightRep < targetRepsPerSet)
+                    currentRightRep++;
+            }
+            else
+            {
+                Debug.LogWarning(
+                    "[ExerciseManager] Rep completed but no LEFT/RIGHT direction was supplied.");
+
+                validationTester.ConsumeRep();
+                return;
+            }
+
+
+            // CurrentRep is the total number of valid repetitions
+            // completed in this set across both sides.
+            currentRep =
+                currentLeftRep + currentRightRep;
+
+            totalCompletedReps++;
 
 
             if (showDebugLogs)
             {
                 Debug.Log(
-                    "[ExerciseManager] REP COMPLETED");
+                    "[ExerciseManager] REP COMPLETED | " +
+                    "Side: " + completedDirection);
 
                 Debug.Log(
                     $"[ExerciseManager] " +
                     $"Set {currentSet}/{targetSets} | " +
-                    $"Rep {currentRep}/{targetRepsPerSet}");
+                    $"Left {currentLeftRep}/{targetRepsPerSet} | " +
+                    $"Right {currentRightRep}/{targetRepsPerSet}");
+
+                Debug.Log(
+                    $"[ExerciseManager] TOTAL REPS: " +
+                    $"{totalCompletedReps}/{TotalTargetReps}");
             }
 
 
-            // =====================================================
-            // CONSUME REP
-            // =====================================================
-
             validationTester.ConsumeRep();
-
-
-            // =====================================================
-            // CHECK SET
-            // =====================================================
 
             CheckSetCompletion();
         }
@@ -440,8 +555,9 @@ namespace ExerciseGame.Core.Exercise
 
         private void CheckSetCompletion()
         {
-            if (currentRep <
-                targetRepsPerSet)
+            // A set is complete only when BOTH sides reach the target.
+            if (currentLeftRep < targetRepsPerSet ||
+                currentRightRep < targetRepsPerSet)
             {
                 return;
             }
@@ -451,7 +567,8 @@ namespace ExerciseGame.Core.Exercise
             {
                 Debug.Log(
                     $"[ExerciseManager] " +
-                    $"SET {currentSet} COMPLETED.");
+                    $"SET {currentSet} COMPLETED."
+                );
             }
 
 
@@ -485,6 +602,9 @@ namespace ExerciseGame.Core.Exercise
 
             currentRep = 0;
 
+            currentLeftRep = 0;
+
+            currentRightRep = 0;
 
             validationTester.Reset();
 
@@ -492,21 +612,31 @@ namespace ExerciseGame.Core.Exercise
             if (showDebugLogs)
             {
                 Debug.Log(
-                    "[ExerciseManager] =============================");
+                    "[ExerciseManager] ============================="
+                );
 
                 Debug.Log(
-                    "[ExerciseManager] NEXT SET STARTED");
+                    "[ExerciseManager] NEXT SET STARTED"
+                );
 
                 Debug.Log(
                     $"[ExerciseManager] " +
-                    $"Set: {currentSet}/{targetSets}");
+                    $"Set: {currentSet}/{targetSets}"
+                );
 
                 Debug.Log(
                     $"[ExerciseManager] " +
-                    $"Rep: {currentRep}/{targetRepsPerSet}");
+                    $"Rep: {currentRep}/{targetRepsPerSet}"
+                );
 
                 Debug.Log(
-                    "[ExerciseManager] =============================");
+                    $"[ExerciseManager] " +
+                    $"Total: {totalCompletedReps}/{TotalTargetReps}"
+                );
+
+                Debug.Log(
+                    "[ExerciseManager] ============================="
+                );
             }
         }
 
@@ -524,25 +654,52 @@ namespace ExerciseGame.Core.Exercise
             isPaused = false;
 
 
+            if (validationTesterComponent != null)
+            {
+                validationTesterComponent.SendMessage(
+                    "PauseValidation",
+                    SendMessageOptions.DontRequireReceiver
+                );
+            }
+
+
             if (showDebugLogs)
             {
                 Debug.Log(
-                    "[ExerciseManager] =============================");
+                    "[ExerciseManager] ============================="
+                );
 
                 Debug.Log(
-                    "[ExerciseManager] EXERCISE COMPLETED");
+                    "[ExerciseManager] EXERCISE COMPLETED"
+                );
 
                 Debug.Log(
                     $"[ExerciseManager] " +
-                    $"Sets: {targetSets}/{targetSets}");
+                    $"Total Reps: " +
+                    $"{totalCompletedReps}/{TotalTargetReps}"
+                );
 
                 Debug.Log(
                     $"[ExerciseManager] " +
-                    $"Reps Per Set: {targetRepsPerSet}");
+                    $"Sets: {targetSets}/{targetSets}"
+                );
 
                 Debug.Log(
-                    "[ExerciseManager] =============================");
+                    "[ExerciseManager] ============================="
+                );
             }
+
+
+            // =====================================================
+            // NOTIFY UI
+            // =====================================================
+
+            OnExerciseCompleted?.Invoke(
+                totalCompletedReps,
+                TotalTargetReps,
+                targetSets,
+                targetSets
+            );
         }
 
 
@@ -584,7 +741,13 @@ namespace ExerciseGame.Core.Exercise
         {
             currentRep = 0;
 
+            currentLeftRep = 0;
+
+            currentRightRep = 0;
+
             currentSet = 1;
+
+            totalCompletedReps = 0;
 
             isRunning = false;
 
@@ -602,7 +765,8 @@ namespace ExerciseGame.Core.Exercise
             if (showDebugLogs)
             {
                 Debug.Log(
-                    "[ExerciseManager] Exercise reset.");
+                    "[ExerciseManager] Exercise reset."
+                );
             }
         }
 
@@ -619,7 +783,8 @@ namespace ExerciseGame.Core.Exercise
 
             return Mathf.Clamp01(
                 (float)currentRep /
-                targetRepsPerSet);
+                (targetRepsPerSet * 2)
+            );
         }
 
 
@@ -635,7 +800,8 @@ namespace ExerciseGame.Core.Exercise
 
             return Mathf.Clamp01(
                 (float)(currentSet - 1) /
-                targetSets);
+                targetSets
+            );
         }
 
 
@@ -645,27 +811,14 @@ namespace ExerciseGame.Core.Exercise
 
         public float GetOverallProgress()
         {
-            if (targetSets <= 0 ||
-                targetRepsPerSet <= 0)
-            {
+            if (TotalTargetReps <= 0)
                 return 0f;
-            }
-
-
-            int totalReps =
-                targetSets *
-                targetRepsPerSet;
-
-
-            int completedReps =
-                ((currentSet - 1) *
-                 targetRepsPerSet) +
-                currentRep;
 
 
             return Mathf.Clamp01(
-                (float)completedReps /
-                totalReps);
+                (float)totalCompletedReps /
+                TotalTargetReps
+            );
         }
     }
 }
